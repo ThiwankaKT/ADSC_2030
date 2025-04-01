@@ -1,0 +1,33 @@
+---
+title: "Untitled"
+author: "Your names and student numbers"
+date: "`r Sys.Date()`"
+output:    
+  pdf_document:
+      fig_caption: true
+      number_sections: true
+header-includes:
+    - \usepackage{setspace}
+---
+
+\newpage 
+\tableofcontents 
+\listoffigures
+\listoftables
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+If you want to double space your text, add:
+
+\doublespacing to this document.
+
+If you want to return to single spacing, add:
+
+\singlespacing to this document.
+
+To learn how to put all code in an appendix follow this link:
+
+[Appendix](https://bookdown.org/yihui/rmarkdown-cookbook/code-appendix.html)

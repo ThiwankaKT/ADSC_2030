@@ -1,0 +1,30 @@
+---
+title: "ADSC2020 Project Appendix Example"
+author: "Sean Hellingman"
+format: pdf
+editor: visual
+---
+
+## Example 1 Results
+
+```{r, echo=FALSE}
+
+summary(iris)
+
+
+
+```
+
+```{r, echo=FALSE}
+
+
+summary(mtcars)
+
+
+```
+
+## Appendix 2
+
+```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
+
+```
