@@ -20,7 +20,7 @@ This project analyzes treatment effects in two real-world experiments using stru
 ## Key Results
 
 - Both poison and antidote significantly affect survival time, with poison showing the stronger effect
-- Blocking greatly reduced residual variance compared to a completely randomized design (RE = 16.1)
+- Blocking greatly reduced residual variance compared to a completely randomized design (*RE = 16.1*)
 - Antidote 2 produced the highest survival time, while Antidote 1 produced the lowest
 - Starter culture was the main factor influencing sour cream acidity, accounting for the largest variance component
 - Position had little to no effect on acidity
