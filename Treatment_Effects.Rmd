@@ -1,0 +1,674 @@
+---
+title: "Evaluating Treatment Effects Using Block Designs: A Study of Poison-Antidote Survival and Sour Cream Acidity"
+author: "Neha Malhan & Thiwanka Abeyweera"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    fig_caption: true
+    number_sections: true
+  word_document: default
+header-includes: \usepackage{setspace}
+---
+
+\newpage 
+\tableofcontents 
+\listoftables
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries,echo=FALSE,warning=FALSE,message=FALSE}
+
+# Importing libraries
+
+library(knitr)
+library(dplyr)
+#install.packages("lsmeans")
+library(lsmeans)
+library(car)
+library(lme4)
+#install.packages("daewr")
+library(daewr) 
+
+```
+
+\newpage
+
+# Introduction
+
+Experimental design plays a vital role in statistical research. It offers a structured framework to investigate treatment effects while accounting for external sources of variation. The choice of design depends on the study objectives, the nature of the experimental units, and the factors under investigation. In this report, two real-world experiments are examined, each analyzed using a suitable design method selected to match the structure of the data and the research goals.
+
+## Data Description
+
+The datasets used in this study were obtained from the official website of the United States government, the National Institute of Standards and Technology (NIST). This platform hosts a wide range of experimental data collected using various statistical designs. For the purpose of this study, two specific experiments were selected: one investigating the survival time of animals treated with different poison antidotes, and the other examining the acidity levels in sour cream.
+
+The **Poison-Antidote dataset** originates from an experiment designed to evaluate the effectiveness of various antidotes in improving animal survival following exposure to different poisons. The study employs a Completely Randomized Block Design (CRBD), where Poison acts as the blocking factor, represented by three blocks—each corresponding to a different type or concentration of poison. The treatment factor, Antidote, includes four levels, each representing a distinct antidote being tested.
+
+The primary response variable is Survival Time, measured in hours. Each antidote is randomly assigned to animals within each poison block, with three replicates per treatment.In total, the dataset comprises 48 observations, allowing for robust statistical analysis and enabling a thorough assessment of both the individual and combined effects of poisons and antidotes on animal survival.
+
+**Study Variables:**
+
+-   **Survival Time**: The time (in hours) that an animal survives after exposure to a specific poison and subsequent antidote treatment.
+
+-   **Poison**: The type or concentration of poison administered to the animals (3 levels).
+
+-   **Antidote**: The treatment administered to the animals after poison exposure (4 levels).
+
+```{r data,echo=FALSE, results='hide'}
+
+# Importing datasets
+
+Poison_Antidote <- read.csv("Poison Antidote_RCB.csv")
+
+colnames(Poison_Antidote) <- c("Poison", "Antidote", "Rep", "SurvivalTime")
+
+Poison_Antidote$Poison <- as.factor(Poison_Antidote$Poison)
+Poison_Antidote$Antidote <- as.factor(Poison_Antidote$Antidote)
+Poison_Antidote$Rep <- as.factor(Poison_Antidote$Rep)
+
+Sour_Cream <- read.csv("Acidity of Sour Cream_LSD.csv")
+
+Sour_Cream$Batch <- as.factor(Sour_Cream$Batch)
+Sour_Cream$Position <- as.factor(Sour_Cream$Position)
+Sour_Cream$Starter <- as.factor(Sour_Cream$Starter)
+```
+
+The **Acidity of Sour Cream dataset** originates from an experimental study examining the factors influencing the acidity levels in sour cream production. The experiment has followed a 5-level Latin Square Design, incorporating three treatment factors: batch, position, and starter culture. The dataset contains 25 observations.
+
+From each of the five batches in the study, samples have been collected from five different positions. Each starter culture (C, H, M, N, Y) is numerically coded from 1 to 5 for analysis. Since the dataset follows a 5-level Latin Square Design, each starter culture appears once per row and once per column, controlling for batch and position effects. As there are no direct replicates within the dataset, the statistical power of the analysis relies on the structure of the experimental design rather than traditional replication.
+
+**Study Variables:**
+
+-   **Acidity:** The response variable, representing the measured acidity levels of sour cream samples.
+
+-   **Batch:** A categorical factor representing different production batches (5 levels).
+
+-   **Position:** The location within the batch where the sample was taken (5 levels).
+
+-   **Starter Culture:** The type of culture used in fermentation (5 levels: C = 1, H = 2, M = 3, N = 4, Y = 5).
+
+## Objective
+
+This study addresses two primary objectives. The first objective is to examine the effects of different antidotes and poisons on survival time, focusing on how these factors influence survival outcomes and whether any interaction exists between them. Additionally, the analysis evaluates which factor, antidote or poison, has the most significant impact on survival time.
+
+The second objective involves variance analysis using the Acidity of Sour Cream dataset. This part investigates whether acidity levels vary significantly across batches, positions within batches, or different starter cultures. It also examines whether the variance in acidity remains consistent across all groups.
+
+# Research Objectives
+
+**Objective 1**
+
+The first objective of this study is to investigate how different antidotes and poisons influence survival time. The analysis aims to identify which factor has the greatest impact on survival while also assessing potential interactions between antidote and poison types.
+
+**Hypotheses**:
+
+*Null Hypothesis (*$H_0$) : There is no significant effect of antidote type, poison type, or their interaction on animal survival time.
+
+*Alternate Hypothesis (*$H_1$) : At least one of the following factors has a significant effect on survival time: antidote type, poison type, or the interaction between them.
+
+**Objective 2**
+
+This analysis investigates how acidity levels vary across batches, sampling positions within a batch, and different starter culture types. It also examines the relative contribution of each factor to overall variability while assessing whether certain sources of variation are more influential than others.
+
+**Hypotheses:**
+
+*Null Hypothesis (*$H_0$) : Acidity levels do not differ significantly across batches, positions, or starter cultures.
+
+*Alternate Hypothesis (*$H_1$) : At least one of the following factors has a significant effect on acidity: batch, position, or starter culture.
+
+# Analysis Selection
+
+Statistical methods were selected to align with the structure of each experiment and ensure valid inference.
+
+For Objective 1 (Poison-Antidote dataset), a Randomized Complete Block Design (RCBD) was used. The effects of antidote and poison on survival time were analyzed using ANOVA. Due to a violation of the normality assumption, a log transformation was applied. Assumptions were checked using the Shapiro-Wilk and Levene’s tests. An interaction model was also fitted, followed by polynomial contrasts and Tukey’s test to assess treatment effects. Relative Efficiency (RE) was calculated to evaluate the benefit of blocking.
+
+For Objective 2 (Acidity of Sour Cream dataset), a Latin Square Design (LSD) was used to study the effects of batch, position, and starter culture. ANOVA was performed, and model assumptions were checked using residual diagnostics. Tukey’s HSD test was used to compare starter cultures, and a linear mixed-effects model was fitted to estimate variance components and confidence intervals.
+
+# Results
+
+## Objective 1: Effects of Antidote and Poison on Survival Time
+
+### Model Specification
+
+The mathematical model applied to the Poison-Antidote dataset in the context of the randomized complete block design (RCB) with one factor is:
+
+$Y_{ij}$ = $\mu$ + $b_i$ + $\tau_j$ + $\epsilon_{ij}$
+
+Where:
+
+-   $Y_{ij}$​ represents the observed survival time for the $j_{th}$ antidote in the $i_{th}$ block,
+
+-   $\mu$ is the overall mean survival time,
+
+-   $b_i$ represents the block effects associated with different poisons,
+
+-   $\tau_j$​ represents the treatment effects of different antidotes,
+
+-   $\epsilon_{ij}$​ is the random error term.
+
+```{r}
+
+model1 <- aov(SurvivalTime ~ Poison + Antidote, data = Poison_Antidote)
+
+```
+
+To ensure valid inference from the fitted model, it is essential to verify the underlying statistical assumptions.
+
+### Model Diagnostics and Transformation
+
+The Q-Q plot of residuals suggested a departure from normality, likely due to a few outliers, which was confirmed by the Shapiro-Wilk test with a low p-value. The Scale-Location plot did not indicate major violations of constant variance, and Levene's test showed a high p-value, suggesting homogeneous variance across treatment factor levels. Therefore, while the assumption of homogeneity of variance held, the normality assumption was violated, which could be addressed with appropriate correction methods.
+
+```{r}
+
+model1.1 <- aov(log(SurvivalTime) ~ Poison + Antidote, data = Poison_Antidote)
+
+```
+
+Log transformation of the response variable addresses the normality violation, allowing for valid inferences about the effects of survival time and the poison-antidote treatments. After log-transforming the response, the model was re-fitted, and the significance of treatment and blocking effects was reassessed.
+
+### Main Effects of Poison and Antidote
+
+```{r model1.1, echo=FALSE}
+
+# model1.1 summary
+# summary(model1.1)
+
+# Creating the data for the table
+anova_results <- data.frame(
+  Factor = c("Poison", "Antidote", "Residuals"),
+  Df = c(2, 3, 42),
+  `Sum Sq` = c(5.237, 3.557, 2.342),
+  `Mean Sq` = c(2.6187, 1.1857, 0.0558),
+  `F value` = c(46.96, 21.26, NA),
+  `Pr(>F)` = c(1.95e-11, 1.56e-08, NA),
+  Significance = c("***", "***", "")
+)
+
+# Generating the table
+kable(anova_results, 
+      col.names = c("Factor", "Df", "Sum Sq", "Mean Sq", "F value", "Pr(>F)", "Significance"), 
+      caption = "ANOVA Results for Poison and Antidote Effects on Survival Time")
+
+```
+
+Both the Poison and Antidote factors have significant effects on survival time. Since the model was fitted using log-transformed survival time, the interpretation focuses on explaining variability in survival time on the log scale.
+
+The sum of squares (Sum Sq) and mean square (Mean Sq) values show that Poison explains a larger proportion of the variability in log-transformed survival time compared to Antidote. The higher mean square value for Poison indicates that poison type contributes more to variations in log survival time than antidote treatments.
+
+The F values reinforce this interpretation, with Poison having a substantially higher F value than Antidote, suggesting that Poison plays a dominant role in explaining variation in log survival time, although Antidote also has a statistically significant effect.
+
+Residual variance represents unexplained variation in log-transformed survival time. Despite this, the significant effects of Poison and Antidote confirm that both factors contribute meaningfully to differences in survival time.
+
+By including Poison as a blocking factor, the model accounts for baseline differences in survival time due to poison type, ensuring more accurate assessment of Antidote effects. The results highlight that both Poison and Antidote significantly impact survival time, with Poison having the stronger effect on the log-transformed response.
+
+### Interaction Effects  
+
+```{r}
+
+model1.2 <- aov(log(SurvivalTime) ~ Poison * Antidote, data = Poison_Antidote)
+
+```
+
+```{r model1.2, echo=FALSE}
+
+# model1.2 summary
+# summary(model1.2)
+
+# Creating the data for the table
+anova_results <- data.frame(
+  Factor = c("Poison", "Antidote", "Poison:Antidote", "Residuals"),
+  Df = c(2, 3, 6, 36),
+  `Sum Sq` = c(5.237, 3.557, 0.396, 1.947),
+  `Mean Sq` = c(2.6187, 1.1857, 0.0660, 0.0541),
+  `F value` = c(48.43, 21.93, 1.22, NA),
+  `Pr(>F)` = c(6.20e-11, 2.99e-08, 0.319, NA),
+  Significance = c("***", "***", "", "")
+)
+
+# Generating the table
+kable(anova_results, 
+      col.names = c("Factor", "Df", "Sum Sq", "Mean Sq", "F value", "Pr(>F)", "Significance"), 
+      caption = "ANOVA Results for Poison, Antidote, and Interaction Effects on Survival Time")
+
+```
+
+This model tests the effects of both Poison and Antidote on log-transformed survival time, as well as their potential interaction. The significant main effects indicate that both Poison and Antidote contribute to differences in log survival time. However, the interaction between Poison and Antidote is not significant, suggesting that the effect of Antidote on log survival time remains consistent across different poison types. This indicates that the relative effectiveness of each antidote does not vary with the poison administered, and no significant combined effect influences log survival time. Since the interaction term is not significant, the additive model sufficiently explains the variation in log survival time, with Poison and Antidote acting independently.
+
+Given the lack of a significant interaction term, the additive model is used for further exploration of main effects and trend analysis.
+
+### Polynomial Trend Analysis
+
+To better understand the pattern of change in survival time across antidote levels, the analysis examines whether a linear, quadratic, or cubic trend best describes the relationship.
+
+```{r poly, echo=FALSE}
+
+# Polynomial trends
+contrasts(Poison_Antidote$Antidote) <- contr.poly(4)
+
+# summary.aov(model1.1, split = list(Antidote = list("Linear" = 1,
+#              "Quadratic" = 2, "Cubic" = 3)))
+
+# Creating the data for the table
+anova_results <- data.frame(
+  Factor = c("Poison", "Antidote", "Antidote: Linear", "Antidote: Quadratic", "Antidote: Cubic", "Residuals"),
+  Df = c(2, 3, 1, 1, 1, 42),
+  `Sum Sq` = c(5.237, 3.557, 1.989, 0.026, 1.543, 2.342),
+  `Mean Sq` = c(2.6187, 1.1857, 1.9886, 0.0258, 1.5427, 0.0558),
+  `F value` = c(46.958, 21.262, 35.659, 0.463, 27.663, NA),
+  `Pr(>F)` = c(1.95e-11, 1.56e-08, 4.37e-07, 0.5, 4.57e-06, NA),
+  Significance = c("***", "***", "***", "", "***", "")
+)
+
+# Generating the table
+kable(anova_results, 
+      col.names = c("Factor", "Df", "Sum Sq", "Mean Sq", "F value", "Pr(>F)", "Significance"), 
+      caption = "ANOVA Results for Poison, Antidote, and Interaction Effects on Survival Time")
+
+```
+
+The analysis reveals that the Antidote factor has both linear and cubic effects on log-transformed survival time, with both effects being statistically significant. The significant linear effect suggests that log survival time changes consistently with antidote levels. The significant cubic effect indicates a more complex relationship between antidote and log survival time, deviating from a simple linear trend. However, the quadratic effect is not significant, suggesting that a basic curve does not adequately describe the pattern, but higher-order (cubic) terms better capture the variation in log survival time.
+
+To visualize these trends, plots showing the relationship between log-transformed survival time and antidote levels, along with fitted polynomial regression curves, are provided in the appendices.
+
+### Relative Efficiency of Blocking
+
+Having confirmed the significance of the blocking factor, the effectiveness of the blocking design in improving model efficiency compared to a completely randomized design (CRD) is assessed.
+
+```{r RE, echo=FALSE}
+
+# Computing RE
+
+sigma2CRD <- (5.237 + 2.342)/(4*(3-1))
+sigmaRCB <- 0.0558 # From residuals
+
+nuRCB <- 6 #(b-1)(t-1) #b=10 #t=5
+nuCRD <- 8 #t(b-1)
+
+RE <- ((nuRCB+1)*(nuCRD+3)*sigma2CRD)/((nuRCB+3)*(nuCRD+1)*sigmaRCB)
+
+cat("The Relative Efficiency (RE) is:", RE, "\n")
+
+```
+
+The Relative Efficiency (RE) compares the Randomized Complete Block Design (RCB) to the Completely Randomized Design (CRD) in terms of reducing variance in log survival time. The estimated variance for the CRD is 1.32, while the residual variance in the RCB is 0.0558, indicating that blocking has substantially improved efficiency. Specifically, blocking has reduced residual variance by $1 - \frac{0.0558}{1.32} \approx 95.8\%$ compared to a CRD. This means that, within the log-transformed survival time scale, blocking effectively reduces unexplained variation, leading to more precise estimates. Without blocking, achieving the same level of precision in treatment means would require approximately 16 times as many trials.
+
+### Mean Comparisons and Antidote Ranking
+
+To identify which antidotes differ significantly in their effects on survival time, pairwise comparisons of the least square means are computed with Tukey’s adjustment.
+
+```{r lsmeans, echo=FALSE}
+
+# Estimating lsmeans
+# lsmeans(model1.1, pairwise ~ Antidote, adjust = c("tukey"))
+
+# Creating the data for the least square means table
+lsmeans_results <- data.frame(
+  Antidote = c(1, 2, 3, 4),
+  lsmean = c(3.40, 4.10, 3.59, 3.90),
+  SE = c(0.0682, 0.0682, 0.0682, 0.0682),
+  df = rep(42, 4),
+  lower_CL = c(3.26, 3.96, 3.46, 3.77),
+  upper_CL = c(3.53, 4.24, 3.73, 4.04)
+)
+
+# Creating the data for the contrasts table
+contrasts_results <- data.frame(
+  Contrast = c("Antidote1 - Antidote2", "Antidote1 - Antidote3", "Antidote1 - Antidote4", 
+               "Antidote2 - Antidote3", "Antidote2 - Antidote4", "Antidote3 - Antidote4"),
+  Estimate = c(-0.705, -0.197, -0.507, 0.508, 0.198, -0.310),
+  SE = rep(0.0964, 6),
+  df = rep(42, 6),
+  t_ratio = c(-7.309, -2.040, -5.260, 5.269, 2.049, -3.219),
+  p_value = c("<.0001", "0.1898", "<.0001", "<.0001", "0.1866", "0.0128")
+)
+
+# Displaying the tables
+kable(lsmeans_results, 
+      col.names = c("Antidote", "LS Mean", "SE", "df", "Lower CL", "Upper CL"), 
+      caption = "Least Square Means for Antidotes")
+
+kable(contrasts_results, 
+      col.names = c("Contrast", "Estimate", "SE", "df", "t ratio", "p value"), 
+      caption = "Pairwise Contrasts Between Antidotes (Adjusted with Tukey)")
+
+```
+
+The $lsmeans()$ results indicate the average log-transformed survival time for each antidote group. After exponentiating these values to return to the original survival time scale, Antidote 2 shows the highest estimated survival time ($e^{4.10}$ $\approx$ 60.37), followed by Antidote 4 ($e^{3.90}$ $\approx$ 49.40). On the other hand, Antidote 1 and 3 show relatively lower survival times, with Antidote 1 estimated at about 29.96 ($\approx$ $e^{3.40}$) and Antidote 3 at 36.23 ($\approx$ $e^{3.59}$). These values suggest that Antidote 2 is the most effective in extending survival time, while 1 has the least effect.
+
+The confidence intervals for the least square means confirm that Antidote 2 has the widest 95% CI (52.46 to 69.41), indicating a strong and reliable effect on survival time. In contrast, Antidote 1 has the narrowest CI (26.05 to 34.12), reflecting a weaker effect. Pairwise contrasts further show significant differences between Antidote 1 and both Antidote 2 and 4, with Antidote 1 leading to lower survival times. Antidote 2 also has a significantly higher survival time than Antidote 3. No significant differences were found between Antidote 1 and 3, or between Antidote 2 and 4, suggesting that Antidotes 2 and 4 are similarly effective, both outperforming Antidotes 1 and 3.
+
+These results align with the confidence intervals, where the absence of overlap indicates statistical significance. Overall, Antidote 2 has the most substantial effect on survival, followed by Antidote 4.
+
+### Power Analysis and Minimum Block Requirement
+
+Lastly, the number of blocks necessary to achieve adequate statistical power for detecting treatment effects is estimated.
+
+```{r blocks, echo=FALSE, warning=FALSE}
+
+# Number of blocks
+
+bmin <- 1
+bmax <- 5
+alpha <- 0.05
+sigma2 <-0.0558
+css <-3.557 # Corrected to match ANOVA
+nu1 <- 4-1
+blocks <- c(bmin:bmax)
+nu2 <- (blocks - 1)*nu1
+nc <- (blocks*css)/sigma2
+Power <- Fpower(alpha,nu1,nu2,nc)
+results <- data.frame(blocks,nu1,nu2,nc,Power)
+
+kable(results, 
+      digits = c(0, 0, 0, 3, 4), 
+      col.names = c("Blocks", "nu1", "nu2", "nc", "Power"),
+      caption = "Power Analysis Results for Different Block Sizes")
+
+```
+
+Although the data for this analysis comes from a previously conducted experiment, the number of blocks is calculated to demonstrate the minimum required to achieve a desired test power. The results indicate that even with just two blocks, a test power as high as 0.9 can be attained for the blocking factor, Poison.
+
+\newpage
+
+## Objective 2: Effects of Starter Culture, Batch, and Position on Acidity of Sour Cream
+
+### Model Specification
+
+The mathematical model used for the Latin Square Design (LSD) applied to the Sour-Cream dataset is as follows:
+
+$y_{ijk}$ = $\mu$ + $r_i$ + $c_j$ + $\tau_k$ + $\epsilon_{ijk}$
+
+-   $y_{ijk}$​ represents the measured acidity level for a given batch ($i$), position ($j$), and starter culture ($k$).
+
+-   $\mu$ represents the grand mean acidity across all conditions.
+
+-   $r_i$ represents the effect of the row factor (in this case, Position).
+
+-   $c_j$ represents the effect of the column factor (in this case, Batch).
+
+-   $\tau_k$ represents the effect of the treatment factor (in this case, Starter culture).
+
+-   $\epsilon_{ijk}$ represents any unexplained variance not accounted for by the structured factors.
+
+As the experiment follows a LSD, interaction terms between blocking factors (batch and position) and the treatment factor (starter) are not included. This is because LSD is structured to control for row and column effects without estimating their interaction with the treatment. As a result, the model assumes that the treatment effect is consistent across all batches and positions, allowing for generalizable conclusions.
+
+```{r}
+
+model3 <- aov(Acidity ~ Batch + Position + Starter, data = Sour_Cream)
+
+```
+
+To ensure valid inference from the fitted model, it is essential to verify the underlying statistical assumptions.
+
+### Model Diagnostics
+
+The Shapiro-Wilk test for normality and Levene’s test for homogeneity of variance both returned high p-values, indicating that the assumptions of normality and constant variance hold. Therefore, the model can be considered valid for analyzing the variation in acidity levels caused by the blocking and treatment factors under study.
+
+With model assumptions validated, the significance of the blocking and treatment effects is examined using ANOVA.
+
+### Main Effects of Batch, Position, and Starter Culture
+
+```{r ANOVA2, echo=FALSE}
+
+# summary(model3)
+
+# Creating the data for the table
+anova_results <- data.frame(
+  Factor = c("Batch", "Position", "Starter", "Residuals"),
+  Df = c(4, 4, 4, 12),
+  `Sum Sq` = c(18.78, 2.35, 44.14, 6.55),
+  `Mean Sq` = c(4.694, 0.587, 11.034, 0.546),
+  `F value` = c(8.597, 1.075, 20.208, NA),
+  `Pr(>F)` = c(0.00163, 0.41119, 2.9e-05, NA),
+  Significance = c("**", "", "***", "")
+)
+
+# Generating the table
+kable(anova_results, 
+      col.names = c("Factor", "Df", "Sum Sq", "Mean Sq", "F value", "Pr(>F)", "Significance"), 
+      caption = "ANOVA Results for Factors in the Sour Cream Study")
+
+```
+
+The ANOVA results indicate that starter culture has the most significant effect on acidity, suggesting that the choice of starter culture plays a crucial role in determining acidity levels. Batch, a blocking factor, also shows a significant impact on acidity, indicating that differences between batches contribute to acidity variation. However, position, the other blocking factor, does not have a significant effect, suggesting that acidity remains relatively stable across different positions within each batch.
+
+Since the Latin Square Design inherently controls for batch and position variability, the primary takeaway from this analysis is that starter culture is the key factor driving acidity differences, while blocking helps account for unwanted variability. The residual mean square represents the remaining unexplained variation in acidity after accounting for these structured factors.
+
+To interpret the practical impact of each factor, mean acidity levels are compared across batches, positions, and starter cultures, and pairwise differences between starter cultures are evaluated using Tukey’s HSD test.
+
+### Mean Comparisons and Starter Ranking
+
+While the comparisons provide insight into group-level differences, ANOVA alone does not quantify the relative contribution of each factor to overall variability. To address this, a linear mixed effects model is fitted with all factors treated as random, allowing for estimation of variance components.
+
+```{r modelTables, echo=FALSE}
+
+# Factor level differences
+
+# model.tables(model3, type = "means")
+
+# TukeyHSD(model3, "Starter")
+
+# For Tables of Means
+
+# Combine all means into one data frame
+combined_means <- data.frame(
+  Category = rep(c("Batch", "Position", "Starter"), each = 5),
+  Group = c(1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5),
+  Mean = c(8.564, 7.216, 8.840, 9.932, 8.764, 
+           9.000, 8.382, 8.962, 8.236, 8.736, 
+           8.424, 8.274, 7.444, 11.234, 7.940)
+)
+
+# Tukey's Test Results for Starter
+tukey_starter <- data.frame(
+  Contrast = c("2-1", "3-1", "4-1", "5-1", "3-2", "4-2", "5-2", "4-3", "5-3", "5-4"),
+  Diff = c(-0.150, -0.980, 2.810, -0.484, -0.830, 2.960, -0.334, 3.790, 0.496, -3.294),
+  Lower = c(-1.6396, -2.4696, 1.3204, -1.9736, -2.3196, 1.4704, -1.8236, 2.3004, -0.9936, -4.7836),
+  Upper = c(1.3396, 0.5096, 4.2996, 1.0056, 0.6596, 4.4496, 1.1556, 5.2796, 1.9856, -1.8044),
+  P_value = c(0.9974, 0.2820, 0.0005, 0.8343, 0.4289, 0.0003, 0.9491, 0.00003, 0.8223, 0.0001)
+)
+
+# Combined Means Table
+kable(combined_means, 
+      col.names = c("Category", "Group", "Mean"),
+      caption = "Combined Means for Batch, Position, and Starter")
+
+# Tukey's Test Results for Starter
+kable(tukey_starter, 
+      digits = c(0, 3, 3, 3, 4), 
+      col.names = c("Contrast", "Diff", "Lower", "Upper", "p-value"),
+      caption = "Tukey's Test Results for Starter Comparisons")
+
+```
+
+The table of means provides an overview of acidity levels across the blocking factors (Batch and Position) and the treatment factor (Starter). While some variation is observed among batches and positions, the most notable differences appear in the Starter factor, with Starter 4 showing the highest mean acidity and Starter 3 the lowest. This suggests that the choice of starter culture has a stronger impact on acidity compared to batch or position effects.
+
+The Tukey HSD test further examines pairwise differences between starter cultures. It confirms that Starter 4 produces significantly higher acidity than Starters 1, 2, 3, and 5. In contrast, comparisons between several other starters, such as Starters 1, 2, and 5, do not show significant differences, indicating similar effects on acidity. These results emphasize the strong influence of certain starter cultures on acidity levels while also suggesting that some cultures produce comparable outcomes.
+
+### Estimation of Variance Components
+
+To assess the precision and significance of the variance estimates, confidence intervals for each variance component are constructed using a profiled likelihood approach.
+
+The variances of the effects $a_i$, $b_j$, and $c_k$ are $\sigma^2_a$, $\sigma^2_b$, and $\sigma^2_c$ respectively. The total variability of the response can be expressed as:
+
+$\sigma^2_y$ = $\sigma^2_a$ + $\sigma^2_b$ + $\sigma^2_c$ + $\sigma^2$
+
+-   $\sigma^2_y$ represents the total variance in the acidity across all factors and interactions.
+
+-   $\sigma^2_a$ represents the variability in acidity explained by differences between batches.
+
+-   $\sigma^2_b$ represents the differences in acidity based on the position within the batch.
+
+-   $\sigma^2_c$ represents the variation in acidity due to the type of starter culture used.
+
+-   $\sigma^2$ represents all other sources of variation that are not explained by the model factors or their interactions.
+
+```{r}
+
+model4 <- lmer(Acidity ~ 1 + (1|Batch) + (1|Position) + (1|Starter), 
+               data = Sour_Cream)
+
+```
+
+```{r model4, echo=FALSE}
+
+# model4 summary
+# summary(model4)
+
+# Create the variance and standard deviation data
+variance_sd <- data.frame(
+  Groups = c("Batch (Intercept)", "Position (Intercept)", "Starter (Intercept)", "Residual"),
+  Variance = c(0.829659, 0.008195, 2.097609, 0.546018),
+  Std_Dev = c(0.91086, 0.09053, 1.44831, 0.73893)
+)
+
+# Variance and Std. Dev. Table
+kable(variance_sd, 
+      col.names = c("Groups", "Variance", "Std. Dev."),
+      caption = "Variance and Standard Deviation for Each Group")
+
+```
+
+The results indicate that Starter accounts for the largest portion of the variation in acidity, as reflected by its high variance. This suggests that differences between starter cultures have a substantial impact on the acidity level of sour cream. Batch explains the second largest portion of variability, implying that batch-to-batch differences also influence acidity, though to a lesser extent than Starter. In contrast, Position contributes very little to the overall variability, indicating that where the sample was taken within a batch has a negligible effect on acidity. The residual variance remains notable, suggesting that additional unexplained factors may be influencing acidity beyond those accounted for in the model.
+
+\newpage
+
+### Confidence Intervals for Variance Components
+
+```{r}
+
+prS <- profile(fm6M <-lmer(Acidity ~ 1 + (1|Batch) + (1|Position) + (1|Starter), 
+                           data = Sour_Cream, REML = FALSE))
+
+```
+
+```{r prS, echo=FALSE}
+
+# Confidence intervals for variance components
+# confint(prS)
+
+# Creating the data for the table
+results <- data.frame(
+  Parameter = c(".sig01", ".sig02", ".sig03", ".sigma", "(Intercept)"),
+  `2.5 %` = c(0.4104940, 0.0000000, 0.7376391, 0.5199436, 7.0295890),
+  `97.5 %` = c(2.0685618, 0.7482116, 2.9788598, 1.1060382, 10.2968101)
+)
+
+# Generating the table
+kable(results, col.names = c("Parameter", "2.5 %", "97.5 %"), caption = "Confidence Intervals for Parameters")
+
+```
+
+The confidence intervals suggest that the Batch effect (.sig01) and Starter effect (.sig03) are significantly different from zero, indicating that these factors contribute meaningfully to the variability in acidity. The Starter effect exhibits a wider range of variation compared to the Batch effect, consistent with the earlier variance component estimates. In contrast, the Position effect (.sig02) has a lower bound of zero, suggesting that its impact on acidity may not be significantly different from zero. The residual variance (.sigma) is significantly different from zero, indicating the presence of unexplained variation. The confidence intervals for all estimates are relatively wide, likely due to the limited number of observations in the dataset, which reduces the precision of variance component estimates.
+
+# Conclusions  
+
+Together, the two analyses demonstrate the value of well-structured experimental designs and appropriate statistical modeling in uncovering key treatment effects while accounting for nuisance variability. In the toxicology study, the randomized complete block design enhanced precision by controlling for block-level variation, revealing that both poison and antidote significantly affect survival time, with a clear linear dose-response pattern across antidotes. In the dairy fermentation study, the Latin Square Design effectively isolated the influence of starter culture on sour cream acidity, while controlling for batch and position effects. In both cases, the primary treatment factors, antidote and starter culture, emerged as the most influential variables, and variance component analysis reinforced the dominant role of these treatments over blocking factors. These results highlight the importance of thoughtful experimental planning and comprehensive model evaluation in producing reliable, interpretable outcomes across diverse applied research settings.
+
+# References
+
+1\. National Institute of Standards and Technology. (n.d.). *Datasets*. U.S. Department of Commerce. <https://www.itl.nist.gov/div898/software/dataplot/datasets.htm>  
+2\. Hellingman, S. (2025). ADSC2030: Design for Data Science [Lecture Slides & Example Codes].
+
+# Appendices
+
+This project report was collaboratively prepared by Neha Malhan and Thiwanka Abeyweera.
+
+The appendix includes the code used to generate the results discussed in the report, along with model diagnostics and visualizations for trend analysis.
+
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
+```
+
+```{r assumptions}
+
+# Assumption check for the initial model (Poison)
+
+# Normality #
+plot(model1,2)
+
+shapiro.test(model1$residuals)
+
+# Constant Variance #
+plot(model1,3)
+
+leveneTest(resid(model1) ~ Poison_Antidote$Antidote)
+
+```
+
+```{r assumptions2}
+
+# Assumption check for the log-transformed model (Poison)
+
+# Normality #
+plot(model1.1,2)
+
+shapiro.test(model1.1$residuals)
+
+```
+
+```{r assumptions3}
+
+# Assumption check for the initial model (Sour Cream)
+
+# Normality #
+plot(model3,2)
+
+shapiro.test(model3$residuals)
+
+# Constant Variance #
+plot(model3,3)
+
+# Levene's test for Batch
+leveneTest(Acidity ~ Batch, data = Sour_Cream)
+
+# Levene's test for Position
+leveneTest(Acidity ~ Position, data = Sour_Cream)
+
+# Levene's test for Starter
+leveneTest(Acidity ~ Starter, data = Sour_Cream)
+
+```
+
+```{r plot1}
+
+# Visualizing the cubic trend
+
+# Compute mean SurvivalTime for each Antidote group
+df_summary <- Poison_Antidote %>%
+  group_by(Antidote) %>%
+  summarise(mean_survival = mean(log(SurvivalTime), na.rm = TRUE))
+
+x <- as.numeric(as.character(df_summary$Antidote))  # Convert Antidote levels to numeric
+y <- df_summary$mean_survival  # Correctly computed mean SurvivalTime per Antidote
+
+plot(x, y, xlab = "Antidote", ylab = "log-SurvivalTime")
+
+xx <- seq(min(x), max(x), length.out = 100)  # Adjust range dynamically
+rate.quad <- lm(y ~ poly(x, 3))  # Fit polynomial model
+
+lines(xx, predict(rate.quad, data.frame(x = xx)), col = "blue")  # Draw fitted curve
+```
+
+```{r plot2}
+
+# Visualizing the linear trend
+
+# Compute mean SurvivalTime for each Antidote group
+df_summary <- Poison_Antidote %>%
+  group_by(Antidote) %>%
+  summarise(mean_survival = mean(log(SurvivalTime), na.rm = TRUE))
+
+x <- as.numeric(as.character(df_summary$Antidote))  # Convert Antidote to numeric
+y <- df_summary$mean_survival  # Mean SurvivalTime per Antidote
+
+if (length(x) == length(y)) {
+  plot(x, y, xlab = "Antidote", ylab = "log-Survival Time")
+
+  xx <- seq(min(x), max(x), length.out = 100)  # Adjust range dynamically
+  rate.quad <- lm(y ~ poly(x, 1))  # Fit polynomial model
+
+  lines(xx, predict(rate.quad, data.frame(x = xx)), col = "blue")  # Draw fitted curve
+} else {
+  warning("Mismatch in x and y lengths. Model cannot be fitted.")
+}
+```
